@@ -1,5 +1,6 @@
 :root {
-  --ac: #808b72;
+  /* 포인트 컬러 — Pantone 17-1937 Hot Pink */
+  --ac: #ce6996;
 }
 
 * { box-sizing: border-box; }
@@ -13,7 +14,7 @@ html, body {
 }
 
 a { color: inherit; text-decoration: none; }
-a:hover { color: #808b72; }
+a:hover { color: var(--ac); }
 
 @keyframes fadein {
   from { opacity: 0; transform: translateY(10px); }
@@ -102,7 +103,7 @@ a:hover { color: #808b72; }
 .img-slot-empty .cap { max-width: 90%; font-weight: 500; letter-spacing: .01em; }
 .img-slot-empty .sub { font-size: 11px; }
 .img-slot-empty .sub u { text-underline-offset: 2px; text-decoration-color: rgba(58, 54, 48, .3); }
-.img-slot.drag-over { outline: 2px solid var(--ac); outline-offset: -2px; background: rgba(128, 139, 114, .12); }
+.img-slot.drag-over { outline: 2px solid var(--ac); outline-offset: -2px; background: rgba(206, 105, 150, .12); }
 .img-slot.filled .img-slot-img { display: block; }
 .img-slot.filled .img-slot-empty { display: none; }
 
@@ -272,6 +273,7 @@ a:hover { color: #808b72; }
 .chevron { display: inline-block; transition: transform .2s; color: #a9a294; font-size: 18px; }
 .chevron.open { transform: rotate(90deg); }
 .accordion-panel { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.accordion-panel[hidden] { display: none; }
 .account-card {
   background: #fdfbf7;
   border: 1px solid rgba(58, 54, 48, .08);
