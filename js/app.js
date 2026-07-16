@@ -56,10 +56,55 @@
   // (independent of the on-screen slot size). Deployed photos placed as
   // static files under assets/images/ are shown at full original quality —
   // this re-encode only applies to in-browser preview uploads.
-  const MAX_DIM = 2400;
+  const MAX_DIM = 2000;
   const ACCEPT = ['image/png', 'image/jpeg', 'image/webp', 'image/avif'];
+  const GALLERY_COUNT = 25;
+  const galleryIds = Array.from({ length: GALLERY_COUNT }, (_, i) => 'g' + (i + 1));
 
-  async function fileToDataUrl(file) {
+  // Preview images are persisted in IndexedDB (as Blobs), not localStorage.
+  // localStorage caps at ~5-10MB and stores text (a high-res photo as a
+  // base64 data-URL is huge), so a handful of gallery photos overflowed it
+  // — that was the "이미지가 커서 안 들어감" error. IndexedDB holds Blobs
+  // natively with a much larger quota, so 25+ high-res previews fit.
+  const DB_NAME = 'invite-images';
+  const STORE = 'slots';
+  let _dbP = null;
+  function idb() {
+    if (_dbP) return _dbP;
+    _dbP = new Promise((resolve, reject) => {
+      let req;
+      try { req = indexedDB.open(DB_NAME, 1); }
+      catch (e) { reject(e); return; }
+      req.onupgradeneeded = () => { req.result.createObjectStore(STORE); };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return _dbP;
+  }
+  async function idbGet(id) {
+    try {
+      const db = await idb();
+      return await new Promise((resolve) => {
+        const req = db.transaction(STORE, 'readonly').objectStore(STORE).get(id);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+    } catch (e) { return null; }
+  }
+  async function idbPut(id, blob) {
+    try {
+      const db = await idb();
+      return await new Promise((resolve) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).put(blob, id);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+        tx.onabort = () => resolve(false);
+      });
+    } catch (e) { return false; }
+  }
+
+  async function fileToWebpBlob(file) {
     const bitmap = await createImageBitmap(file);
     try {
       const longest = Math.max(bitmap.width, bitmap.height);
@@ -69,25 +114,12 @@
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
-      return canvas.toDataURL('image/webp', 0.92);
+      return await new Promise((resolve, reject) => {
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('encode'))), 'image/webp', 0.9);
+      });
     } finally {
       if (bitmap.close) bitmap.close();
     }
-  }
-
-  const slotKey = (id) => 'invite:slot:' + id;
-
-  function getSlotData(id) {
-    try {
-      const raw = localStorage.getItem(slotKey(id));
-      return raw || null;
-    } catch (e) { return null; }
-  }
-  function setSlotData(id, dataUrl) {
-    try {
-      localStorage.setItem(slotKey(id), dataUrl);
-      return true;
-    } catch (e) { return false; }
   }
 
   class ImageSlotController {
@@ -98,12 +130,16 @@
       this.img = root.querySelector('.img-slot-img');
       this.input = root.querySelector('.img-slot-input');
       this._depth = 0;
+      this._objUrl = null;
 
-      // Only mark the slot "filled" once the image actually decodes —
-      // a data-static path that doesn't exist yet (photo not delivered
-      // yet) must fall back to the empty placeholder, not a broken-image icon.
+      // A static path that doesn't exist yet (photo not delivered) must fall
+      // back to the empty placeholder, not a broken-image icon. IDB-backed
+      // images mark themselves filled on assignment (we already hold the
+      // Blob), so this load/error pair only governs the static-src case.
       this.img.addEventListener('load', () => this.root.classList.add('filled'));
-      this.img.addEventListener('error', () => this.root.classList.remove('filled'));
+      this.img.addEventListener('error', () => {
+        if (!this._objUrl) this.root.classList.remove('filled');
+      });
 
       root.addEventListener('click', () => {
         if (!this.root.classList.contains('filled')) {
@@ -147,23 +183,31 @@
         return;
       }
       try {
-        const url = await fileToDataUrl(file);
-        const ok = setSlotData(this.id, url);
-        if (!ok) toast('이미지가 커서 이 기기에서만 임시로 보여요.');
-        this.refresh(url);
+        const blob = await fileToWebpBlob(file);
+        const ok = await idbPut(this.id, blob);
+        if (!ok) toast('저장에 실패했어요 — 이 기기에서만 임시로 보여요.');
+        this.setBlob(blob);
       } catch (err) {
         toast('이미지를 불러올 수 없어요.');
       }
     }
 
-    // sessionUrl: if a save just failed (quota), show it this session anyway.
-    refresh(sessionUrl) {
+    setBlob(blob) {
+      if (this._objUrl) { URL.revokeObjectURL(this._objUrl); this._objUrl = null; }
+      this._objUrl = URL.createObjectURL(blob);
+      this.img.src = this._objUrl;
+      // We hold the Blob, so it IS filled regardless of the (lazy) load event.
+      this.root.classList.add('filled');
+    }
+
+    async refresh() {
       // A local upload always wins over the baked-in static path — the
       // user's explicit drop is a deliberate override, not a fallback.
-      const url = getSlotData(this.id) || sessionUrl || this.staticSrc;
-      if (url) {
-        if (this.img.getAttribute('src') !== url) {
-          this.img.src = url;
+      const blob = await idbGet(this.id);
+      if (blob) { this.setBlob(blob); return; }
+      if (this.staticSrc) {
+        if (this.img.getAttribute('src') !== this.staticSrc) {
+          this.img.src = this.staticSrc;
         } else if (this.img.complete && this.img.naturalWidth > 0) {
           this.root.classList.add('filled');
         }
@@ -173,6 +217,30 @@
       }
     }
   }
+
+  // ---- build gallery cards (GALLERY_COUNT) before wiring controllers ----
+  (function buildGallery() {
+    const scroller = document.getElementById('galleryScroller');
+    if (!scroller) return;
+    scroller.innerHTML = '';
+    const icon =
+      '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle>' +
+      '<path d="m21 15-5-5L5 21"></path></svg>';
+    galleryIds.forEach((id, i) => {
+      const slide = document.createElement('div');
+      slide.className = 'gallery-slide';
+      slide.innerHTML =
+        '<div class="gallery-img img-slot" data-slot="' + id + '" data-shape="rounded" data-radius="4" data-static="">' +
+        '<div class="img-slot-inner"><img class="img-slot-img" alt="" loading="lazy">' +
+        '<div class="img-slot-empty">' + icon +
+        '<div class="cap">사진 ' + String(i + 1).padStart(2, '0') + '</div></div></div>' +
+        '<input type="file" class="img-slot-input" accept="image/png,image/jpeg,image/webp,image/avif" hidden>' +
+        '</div>';
+      scroller.appendChild(slide);
+    });
+  })();
 
   const slotControllers = new Map();
   document.querySelectorAll('.img-slot').forEach((el) => {
@@ -215,7 +283,6 @@
   renderStoryDots();
 
   // ============ gallery carousel + lightbox ============
-  const galleryIds = [1, 2, 3, 4, 5, 6].map((n) => 'g' + n);
   const galleryScroller = document.getElementById('galleryScroller');
   document.getElementById('galPrev').addEventListener('click', () => {
     galleryScroller.scrollBy({ left: -galleryScroller.clientWidth * 0.7, behavior: 'smooth' });
