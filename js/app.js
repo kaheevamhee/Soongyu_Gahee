@@ -91,7 +91,7 @@
       slide.innerHTML =
         '<div class="gallery-img img-slot" data-slot="' + id + '" data-shape="rounded" data-radius="4" ' +
         'data-static="assets/images/gallery-' + (i + 1) + '.jpg">' +
-        '<div class="img-slot-inner"><img class="img-slot-img" alt="사진 ' + (i + 1) + '" loading="lazy"></div>' +
+        '<div class="img-slot-inner"><img class="img-slot-img" alt="사진 ' + (i + 1) + '"></div>' +
         '</div>';
       scroller.appendChild(slide);
     });
@@ -260,7 +260,10 @@
   const bgm = document.getElementById('bgm');
   const musicToggle = document.getElementById('musicToggle');
   const musicNote = document.getElementById('musicNote');
-  let musicOn = false;
+  // Default ON (autoplay). Browsers block audio autoplay until a user
+  // gesture, so we try immediately and, if blocked, start on the first tap
+  // /scroll/keypress anywhere on the page.
+  let musicOn = true;
   bgm.volume = 0;
 
   function fadeTo(target, ms) {
@@ -279,14 +282,32 @@
     musicToggle.setAttribute('aria-pressed', String(musicOn));
     musicToggle.setAttribute('aria-label', musicOn ? '배경음악 끄기' : '배경음악 켜기');
   }
-  musicToggle.addEventListener('click', async () => {
+
+  const GESTURES = ['pointerdown', 'touchstart', 'click', 'keydown', 'scroll'];
+  function armAutoplay() {
+    const start = () => {
+      GESTURES.forEach((ev) => window.removeEventListener(ev, start, true));
+      if (musicOn && bgm.paused) {
+        bgm.play().then(() => fadeTo(0.5, 800)).catch(() => {});
+      }
+    };
+    GESTURES.forEach((ev) => window.addEventListener(ev, start, { capture: true, passive: true }));
+  }
+  // Try to autoplay right away; fall back to first-gesture start if blocked.
+  (function tryAutoplay() {
+    reflectMusic();
+    bgm.play().then(() => fadeTo(0.5, 800)).catch(() => armAutoplay());
+  })();
+
+  musicToggle.addEventListener('click', async (e) => {
+    e.stopPropagation();
     musicOn = !musicOn;
     reflectMusic();
     if (musicOn) {
       try {
         await bgm.play();
         fadeTo(0.5, 800);
-      } catch (e) {
+      } catch (err) {
         toast('배경음악 파일을 아직 준비 중이에요.');
         musicOn = false;
         reflectMusic();
