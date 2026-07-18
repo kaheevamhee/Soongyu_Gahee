@@ -248,22 +248,32 @@
   });
 
   // ============ share / copy link ============
-  // 카카오 SDK 초기화 (JS 키가 있을 때만)
-  function kakaoReady() {
-    if (!window.Kakao || !KAKAO_JS_KEY) return false;
-    try {
-      if (!Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
-      return Kakao.isInitialized();
-    } catch (e) { return false; }
-  }
   // 커스텀 템플릿(큰 세로 이미지 + 버튼)으로 카카오톡 공유.
   // 이미지·문구·버튼·링크는 모두 카카오 콘솔의 템플릿에 고정돼 있어 별도 인자 불필요.
+  // 진단용: 실패하면 원인을 토스트로 보여준다.
   function shareKakao() {
-    if (!kakaoReady()) return false;
+    if (!window.Kakao) {
+      // index.html에 SDK 스크립트가 없거나(옛 index.html) 네트워크 차단인 경우
+      toast(window.__kakaoSdk === 'fail'
+        ? '카카오 SDK 로드 실패 (네트워크/차단)'
+        : '카카오 SDK 미로딩 — index.html이 최신인지 확인');
+      return false;
+    }
+    if (!KAKAO_JS_KEY) return false;
+    try {
+      if (!Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
+    } catch (e) {
+      toast('카카오 초기화 오류: ' + (e && e.message ? e.message : e));
+      return false;
+    }
     try {
       Kakao.Share.sendCustom({ templateId: KAKAO_TEMPLATE_ID });
       return true;
-    } catch (e) { return false; }
+    } catch (e) {
+      // 도메인 미등록·템플릿 문제 등 실제 원인을 화면에 노출
+      toast('카카오 공유 오류: ' + (e && e.message ? e.message : e));
+      return true;
+    }
   }
   document.getElementById('shareBtn').addEventListener('click', async () => {
     // 1순위: 카카오톡 리치 카드, 2순위: 시스템 공유, 3순위: 링크 복사
