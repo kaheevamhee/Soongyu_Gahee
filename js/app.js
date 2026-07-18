@@ -6,6 +6,8 @@
   // https://developers.kakao.com → 내 애플리케이션 → 앱 키 → JavaScript 키
   // 를 아래 따옴표 안에 붙여넣으면 활성화됩니다. (비워두면 기본 공유로 동작)
   const KAKAO_JS_KEY = '64aa32b3f54b8277b838cfc04c647b3d';
+  // 카카오 커스텀 메시지 템플릿 ID (큰 세로 이미지 + 버튼 카드)
+  const KAKAO_TEMPLATE_ID = 135450;
   const SITE_URL = 'https://kaheevamhee.github.io/Soongyu_Gahee/';
   const OG_IMAGE_URL = SITE_URL + 'assets/images/og-image.jpg';
 
@@ -254,22 +256,12 @@
       return Kakao.isInitialized();
     } catch (e) { return false; }
   }
-  // 레퍼런스처럼 큰 세로 이미지 + '청첩장 보기' 버튼 카드로 공유
+  // 커스텀 템플릿(큰 세로 이미지 + 버튼)으로 카카오톡 공유.
+  // 이미지·문구·버튼·링크는 모두 카카오 콘솔의 템플릿에 고정돼 있어 별도 인자 불필요.
   function shareKakao() {
     if (!kakaoReady()) return false;
     try {
-      Kakao.Share.sendDefault({
-        objectType: 'feed',
-        content: {
-          title: '이순규 ♥ 전가희 결혼합니다',
-          description: '2026. 11. 07 (토) 낮 12시\n강서 더베뉴지 베뉴지홀',
-          imageUrl: OG_IMAGE_URL,
-          link: { mobileWebUrl: SITE_URL, webUrl: SITE_URL },
-        },
-        buttons: [
-          { title: '청첩장 보기', link: { mobileWebUrl: SITE_URL, webUrl: SITE_URL } },
-        ],
-      });
+      Kakao.Share.sendCustom({ templateId: KAKAO_TEMPLATE_ID });
       return true;
     } catch (e) { return false; }
   }
