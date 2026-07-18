@@ -288,9 +288,17 @@ a:hover { color: var(--ac); }
   font-family: 'Gowun Dodum', sans-serif;
   font-size: 15.5px;
   color: #3a3630;
+  transition: background .2s, border-color .2s, color .2s;
 }
-.chevron { display: inline-block; transition: transform .2s; color: #a9a294; font-size: 19px; }
-.chevron.open { transform: rotate(90deg); }
+/* 펼쳐진 상태 — 포인트 컬러로 강조 */
+.accordion-toggle.open {
+  color: var(--ac);
+  border-color: var(--ac);
+  background: rgba(206, 105, 150, .07);
+  font-weight: 700;
+}
+.chevron { display: inline-block; transition: transform .2s, color .2s; color: #a9a294; font-size: 19px; }
+.chevron.open { transform: rotate(90deg); color: var(--ac); }
 .accordion-panel { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .accordion-panel[hidden] { display: none; }
 .account-card {
@@ -502,18 +510,21 @@ a:hover { color: var(--ac); }
   opacity: 0;
   transform: translateY(14px);
   animation: introIn 1s ease .15s forwards;
+  font-weight: 700;
 }
 .intro-eyebrow {
   font-family: ui-monospace, Menlo, monospace;
   font-size: 11px;
   letter-spacing: .34em;
   color: var(--ac);
+  font-weight: 700;
 }
 .intro-names {
   font-family: 'Gowun Batang', serif;
   font-size: 30px;
   margin-top: 18px;
   letter-spacing: .02em;
+  font-weight: 700;
 }
 .intro-names span { color: var(--ac); margin: 0 10px; font-size: 22px; vertical-align: middle; }
 .intro-line { width: 30px; height: 1px; background: rgba(58, 54, 48, .25); margin: 18px auto; }

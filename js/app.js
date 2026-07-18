@@ -205,6 +205,7 @@
       const open = panel.hidden;
       panel.hidden = !open;
       toggle.setAttribute('aria-expanded', String(open));
+      toggle.classList.toggle('open', open);
       chevron.classList.toggle('open', open);
     });
   }
@@ -283,14 +284,19 @@
     musicToggle.setAttribute('aria-label', musicOn ? '배경음악 끄기' : '배경음악 켜기');
   }
 
-  const GESTURES = ['pointerdown', 'touchstart', 'click', 'keydown', 'scroll'];
+  // touchend/click/pointerdown/keydown are real user-activation gestures that
+  // unlock audio; scroll is a fallback (some engines honor it, iOS does not).
+  const GESTURES = ['touchend', 'pointerup', 'click', 'keydown', 'scroll'];
   function armAutoplay() {
-    const start = () => {
-      GESTURES.forEach((ev) => window.removeEventListener(ev, start, true));
-      if (musicOn && bgm.paused) {
-        bgm.play().then(() => fadeTo(0.5, 800)).catch(() => {});
-      }
-    };
+    const cleanup = () => GESTURES.forEach((ev) => window.removeEventListener(ev, start, true));
+    function start() {
+      if (!musicOn) { cleanup(); return; }
+      if (!bgm.paused) { cleanup(); return; }
+      // Only stop listening once a play() actually succeeds — otherwise a
+      // gesture that the browser doesn't accept for audio (e.g. scroll on
+      // iOS) would silently disarm autoplay and it would never start.
+      bgm.play().then(() => { fadeTo(0.5, 800); cleanup(); }).catch(() => {});
+    }
     GESTURES.forEach((ev) => window.addEventListener(ev, start, { capture: true, passive: true }));
   }
   // Try to autoplay right away; fall back to first-gesture start if blocked.
