@@ -480,3 +480,61 @@ a:hover { color: var(--ac); }
   transition: opacity .2s;
 }
 .toast.show { opacity: 1; }
+
+/* ==================== 모션 (인트로 · 스크롤 등장 · 히어로) ==================== */
+
+/* 진입 인트로 레이어 — 위로 걷히며 청첩장이 드러남 */
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: #f2ede5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: transform 1.05s cubic-bezier(.76, 0, .24, 1);
+}
+.intro.up { transform: translateY(-100%); }
+.intro-inner {
+  text-align: center;
+  color: #4a463f;
+  opacity: 0;
+  transform: translateY(14px);
+  animation: introIn 1s ease .15s forwards;
+}
+.intro-eyebrow {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: .34em;
+  color: var(--ac);
+}
+.intro-names {
+  font-family: 'Gowun Batang', serif;
+  font-size: 30px;
+  margin-top: 18px;
+  letter-spacing: .02em;
+}
+.intro-names span { color: var(--ac); margin: 0 10px; font-size: 22px; vertical-align: middle; }
+.intro-line { width: 30px; height: 1px; background: rgba(58, 54, 48, .25); margin: 18px auto; }
+.intro-date { font-size: 13px; letter-spacing: .08em; color: #7c766c; }
+@keyframes introIn { to { opacity: 1; transform: none; } }
+
+/* 스크롤 등장 */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity .9s ease, transform .9s cubic-bezier(.2, .65, .25, 1);
+}
+.reveal.in { opacity: 1; transform: none; }
+
+/* 히어로 입장 줌 (켄번스) */
+.hero-slot .img-slot-img { animation: heroIntro 2.2s cubic-bezier(.2, .6, .2, 1) both; }
+@keyframes heroIntro { from { transform: scale(1.28); } to { transform: scale(1.1); } }
+.hero-text { will-change: transform, opacity; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .reveal.in { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .hero-slot .img-slot-img { animation: none; }
+  .intro { display: none !important; }
+}

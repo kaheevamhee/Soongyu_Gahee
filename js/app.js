@@ -271,7 +271,7 @@
     const t0 = performance.now();
     function step(t) {
       const p = Math.min(1, (t - t0) / ms);
-      bgm.volume = start + (target - start) * p;
+      bgm.volume = Math.max(0, Math.min(1, start + (target - start) * p));
       if (p < 1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
@@ -317,4 +317,60 @@
       setTimeout(() => { if (!musicOn) bgm.pause(); }, 420);
     }
   });
+
+  // ============ 모션: 인트로 · 스크롤 등장 · 히어로 패럴랙스 ============
+  const reduceMotion = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // 진입 인트로 레이어 — 잠깐 보였다가 위로 걷힘
+  (function intro() {
+    const el = document.getElementById('intro');
+    if (!el) return;
+    if (reduceMotion) { el.remove(); return; }
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => { el.classList.add('up'); document.body.style.overflow = ''; }, 1900);
+    setTimeout(() => { el.remove(); }, 3050);
+  })();
+
+  // 스크롤 등장(reveal)
+  (function reveal() {
+    const targets = ['.dday', '.greeting', '.story-section', '.gallery-section',
+      '.accounts-section', '.location-section', '.site-footer'];
+    const els = [];
+    targets.forEach((sel) => { const n = document.querySelector(sel); if (n) { n.classList.add('reveal'); els.push(n); } });
+    if (reduceMotion || !('IntersectionObserver' in window)) {
+      els.forEach((n) => n.classList.add('in'));
+      return;
+    }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12 });
+    els.forEach((n) => io.observe(n));
+  })();
+
+  // 히어로 패럴랙스 (텍스트 드리프트·페이드 + 이미지 크롭 시프트)
+  (function heroParallax() {
+    if (reduceMotion) return;
+    const heroImg = document.querySelector('.hero-slot .img-slot-img');
+    const heroText = document.querySelector('.hero-text');
+    if (!heroImg && !heroText) return;
+    let ticking = false;
+    window.addEventListener('scroll', () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY || window.pageYOffset;
+        if (y < 720) {
+          if (heroText) {
+            heroText.style.transform = 'translateY(' + (y * 0.3) + 'px)';
+            heroText.style.opacity = String(Math.max(0, 1 - y / 420));
+          }
+          if (heroImg) heroImg.style.objectPosition = '50% ' + (50 - y * 0.035) + '%';
+        }
+        ticking = false;
+      });
+    }, { passive: true });
+  })();
 })();
