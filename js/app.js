@@ -441,3 +441,15 @@
     });
   })();
 })();
+// 이미지 및 텍스트 보호: 우클릭, 드래그, 선택 방지
+document.addEventListener('contextmenu', function(event) {
+  event.preventDefault();
+});
+
+document.addEventListener('dragstart', function(event) {
+  event.preventDefault();
+});
+
+document.addEventListener('selectstart', function(event) {
+  event.preventDefault();
+});
